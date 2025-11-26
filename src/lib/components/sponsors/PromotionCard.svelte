@@ -18,7 +18,7 @@
   }
 
   function getPromotionUrl() {
-    return `${PUBLIC_APP_URL}/sponsors/${sponsor.slug}`;
+    return `${PUBLIC_APP_URL}/sponsors/${sponsor.slug}/promotions/${promotion.id}`;
   }
 
   $: isExpiringSoon = promotion.end_date
@@ -58,7 +58,7 @@
           <code class="block mt-1 font-mono text-lg font-bold text-primary">{promotion.coupon_code}</code>
         </div>
         <button
-          on:click={() => copyCouponCode(promotion.coupon_code!)}
+          on:click={() => copyCouponCode(promotion.coupon_code || '')}
           class="px-4 py-2 bg-primary text-white rounded hover:bg-primary-light transition-colors text-sm"
         >
           {copied ? 'Copied!' : 'Copy'}

@@ -44,7 +44,7 @@
   function handlePromotionClick(promotion: Promotion) {
     const slug = sponsorSlugs[promotion.sponsor_id];
     if (slug) {
-      goto(`/sponsors/${slug}`);
+      goto(`/sponsors/${slug}/promotions/${promotion.id}`);
     } else if (promotion.external_link) {
       window.open(promotion.external_link, '_blank');
     }

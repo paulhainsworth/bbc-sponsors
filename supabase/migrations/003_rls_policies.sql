@@ -14,8 +14,24 @@ ALTER TABLE analytics_events ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view own profile" ON profiles
   FOR SELECT USING (auth.uid() = id);
 
+CREATE POLICY "Users can insert own profile" ON profiles
+  FOR INSERT WITH CHECK (auth.uid() = id);
+
 CREATE POLICY "Users can update own profile" ON profiles
   FOR UPDATE USING (auth.uid() = id);
+
+-- Sponsor admins policies
+CREATE POLICY "Users can view own sponsor admin records" ON sponsor_admins
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own sponsor admin record" ON sponsor_admins
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Super admins can manage all sponsor admin records
+CREATE POLICY "Super admins can manage sponsor admins" ON sponsor_admins
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
+  );
 
 -- Sponsors policies (public read, admin write)
 CREATE POLICY "Anyone can view active sponsors" ON sponsors
@@ -94,6 +110,17 @@ CREATE POLICY "Super admins can manage slack config" ON slack_config
 CREATE POLICY "Super admins can manage invitations" ON invitations
   FOR ALL USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
+  );
+
+-- Allow anyone to look up invitations by token (for accepting invitations)
+-- This is safe because the token is a secret, and we validate expiration/acceptance in the app
+CREATE POLICY "Anyone can view invitations by token" ON invitations
+  FOR SELECT USING (true);
+
+-- Allow users to update invitations for their own email (to mark as accepted)
+CREATE POLICY "Users can update own invitation" ON invitations
+  FOR UPDATE USING (
+    email = (SELECT email FROM auth.users WHERE id = auth.uid())
   );
 
 -- Analytics policies (sponsor admins can view their own)

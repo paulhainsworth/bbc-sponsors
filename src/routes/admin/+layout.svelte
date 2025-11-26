@@ -1,27 +1,33 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { userStore } from '$lib/stores/user';
   import { createClient } from '$lib/utils/supabase';
+  import { browser } from '$app/environment';
+  import { page } from '$app/stores';
 
-  let loading = true;
-
-  onMount(async () => {
-    // Wait for user store to initialize
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
+  // Use reactive statement to check auth when store finishes loading
+  // Only redirect if we're not already on the target page
+  $: if (browser && !$userStore.loading) {
+    const currentPath = $page.url.pathname;
+    
     if (!$userStore.profile) {
-      goto('/auth/login?redirect=/admin');
-      return;
+      if (!currentPath.startsWith('/auth/login')) {
+        goto('/auth/login?redirect=/admin');
+      }
+    } else if ($userStore.profile.role !== 'super_admin') {
+      if (currentPath.startsWith('/admin')) {
+        goto('/');
+      }
     }
+  }
 
-    if ($userStore.profile.role !== 'super_admin') {
-      goto('/');
-      return;
-    }
-
-    loading = false;
-  });
+  // Loading state is true while:
+  // - Store is loading
+  // - We don't have a profile yet (but store finished loading)
+  // - Profile doesn't have the right role (but store finished loading)
+  $: loading = $userStore.loading || 
+               (!$userStore.profile && !$userStore.loading) || 
+               ($userStore.profile && $userStore.profile.role !== 'super_admin');
 </script>
 
 {#if loading}

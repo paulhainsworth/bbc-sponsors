@@ -15,6 +15,15 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
       return json({ success: false, error: 'Email and role are required' }, { status: 400 });
     }
 
+    // Validate that sponsor_admin invitations have a sponsorId
+    if (role === 'sponsor_admin' && !sponsorId) {
+      console.error('Sponsor admin invitation missing sponsorId:', { email, role, sponsorId });
+      return json({ 
+        success: false, 
+        error: 'sponsorId is required for sponsor_admin invitations' 
+      }, { status: 400 });
+    }
+
     // Use service role client for admin operations
     const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
     if (!serviceRoleKey) {
@@ -71,26 +80,54 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
       return json({ success: false, error: inviteError.message }, { status: 500 });
     }
 
-    // Send invitation email via Supabase Auth Admin API
+    // Send invitation email via magic link
+    // The redirect URL includes the invitation token so the user can accept it after authentication
     const invitationUrl = `${PUBLIC_APP_URL}/auth/accept-invitation?token=${token}`;
+    const callbackUrl = `${PUBLIC_APP_URL}/auth/callback?token=${token}`;
 
     try {
-      // Try to send invitation email via Supabase Auth Admin API
-      const { data: inviteData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-        email,
-        {
-          data: {
-            role,
-            sponsor_id: sponsorId,
-            invitation_token: token,
-            sponsor_name: sponsorName
-          },
-          redirectTo: invitationUrl
+      // Use a regular client (not admin) to send OTP email
+      // Admin client's signInWithOtp may not send emails properly
+      const supabaseClient = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
         }
-      );
+      });
 
-      if (authError) {
-        console.error('Supabase Auth invite error:', authError);
+      // Use signInWithOtp to send a magic link email
+      // This will send an email with a magic link that includes the invitation token
+      // Add timeout to prevent hanging (15 seconds)
+      let otpError: any = null;
+      
+      try {
+        const emailPromise = supabaseClient.auth.signInWithOtp({
+          email: email,
+          options: {
+            emailRedirectTo: callbackUrl,
+            data: {
+              role,
+              sponsor_id: sponsorId,
+              invitation_token: token,
+              sponsor_name: sponsorName,
+              admin_name: adminName
+            }
+          }
+        });
+
+        // Race against timeout
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Email sending timeout after 15 seconds')), 15000)
+        );
+
+        const result = await Promise.race([emailPromise, timeoutPromise]);
+        otpError = 'error' in result ? result.error : null;
+      } catch (err: any) {
+        otpError = err instanceof Error ? err : new Error(String(err));
+      }
+
+      if (otpError) {
+        console.error('OTP sign-in error:', otpError);
         // The invitation record was created successfully, so return success
         // but indicate email sending failed
         return json({
@@ -98,12 +135,12 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
           invitationId: invitation.id,
           invitationUrl,
           message: 'Invitation created successfully, but automatic email sending failed.',
-          warning: authError.message,
+          warning: otpError.message || 'Unknown error',
           emailSent: false
         });
       }
 
-      console.log('Invitation email sent successfully via Supabase Auth');
+      console.log('Invitation email sent successfully');
       return json({
         success: true,
         invitationId: invitation.id,
@@ -112,7 +149,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         emailSent: true
       });
     } catch (authError: any) {
-      console.error('Auth invite exception:', authError);
+      console.error('Auth email exception:', authError);
       // Return success since invitation was created, but email failed
       return json({
         success: true,

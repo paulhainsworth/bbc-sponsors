@@ -14,43 +14,66 @@
   const supabase = createClient();
 
   onMount(async () => {
-    if (!$userStore.profile) return;
+    // Wait for profile to load (with timeout)
+    let attempts = 0;
+    while (!$userStore.profile && attempts < 10) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      attempts++;
+    }
 
-    // Get sponsor for this admin
-    const { data: sponsorAdmin } = await supabase
-      .from('sponsor_admins')
-      .select('sponsor_id')
-      .eq('user_id', $userStore.profile.id)
-      .single();
-
-    if (!sponsorAdmin) {
+    if (!$userStore.profile) {
+      console.error('Profile not loaded');
       loading = false;
       return;
     }
 
-    // Fetch sponsor
-    const { data: sponsorData } = await supabase
-      .from('sponsors')
-      .select('*')
-      .eq('id', sponsorAdmin.sponsor_id)
-      .single();
+    try {
+      // Use server-side API endpoint to get sponsor ID (bypasses RLS)
+      const response = await fetch('/api/sponsor-admin/get-sponsor');
+      const result = await response.json();
 
-    if (sponsorData) {
-      sponsor = sponsorData;
+      if (!result.success || !result.sponsorId) {
+        console.error('Error fetching sponsor via API:', result.error);
+        console.error('User ID:', $userStore.profile.id);
+        console.error('User email:', $userStore.profile.email);
+        loading = false;
+        return;
+      }
+
+      const sponsorId = result.sponsorId;
+
+      // Fetch sponsor
+      const { data: sponsorData, error: sponsorError } = await supabase
+        .from('sponsors')
+        .select('*')
+        .eq('id', sponsorId)
+        .single();
+
+      if (sponsorError) {
+        console.error('Error fetching sponsor:', sponsorError);
+        loading = false;
+        return;
+      }
+
+      if (sponsorData) {
+        sponsor = sponsorData;
+      }
+
+      // Fetch promotions via API endpoint (bypasses RLS)
+      const promotionsResponse = await fetch('/api/sponsor-admin/promotions/list');
+      const promotionsResult = await promotionsResponse.json();
+
+      if (promotionsResult.success && promotionsResult.promotions) {
+        promotions = promotionsResult.promotions;
+      } else {
+        console.error('Error fetching promotions via API:', promotionsResult.error);
+        promotions = [];
+      }
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      loading = false;
     }
-
-    // Fetch promotions
-    const { data: promotionsData } = await supabase
-      .from('promotions')
-      .select('*')
-      .eq('sponsor_id', sponsorAdmin.sponsor_id)
-      .order('created_at', { ascending: false });
-
-    if (promotionsData) {
-      promotions = promotionsData;
-    }
-
-    loading = false;
   });
 </script>
 

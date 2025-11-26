@@ -116,6 +116,10 @@
       // If admin email provided, create invitation
       if (adminEmail && sponsor) {
         try {
+          // Add timeout to prevent hanging (20 seconds)
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 20000);
+
           const response = await fetch('/api/invitations/send', {
             method: 'POST',
             headers: {
@@ -127,9 +131,11 @@
               sponsorId: sponsor.id,
               sponsorName: cleanedData.name,
               adminName: adminName.trim() || null
-            })
+            }),
+            signal: controller.signal
           });
 
+          clearTimeout(timeoutId);
           const result = await response.json();
 
           if (!result.success) {
@@ -146,7 +152,11 @@
           }
         } catch (error: any) {
           console.error('Error sending invitation:', error);
-          invitationMessage = `Sponsor created successfully!\n\n⚠️ Invitation could not be sent automatically.\n\nError: ${error?.message || 'Unknown error'}\n\nPlease check:\n1. SUPABASE_SERVICE_ROLE_KEY is set in .env.local\n2. Check browser console for details`;
+          if (error.name === 'AbortError') {
+            invitationMessage = `Sponsor created successfully!\n\n⚠️ Invitation request timed out.\n\nPlease try sending the invitation again or check your network connection.`;
+          } else {
+            invitationMessage = `Sponsor created successfully!\n\n⚠️ Invitation could not be sent automatically.\n\nError: ${error?.message || 'Unknown error'}\n\nPlease check:\n1. SUPABASE_SERVICE_ROLE_KEY is set in .env.local\n2. Check browser console for details`;
+          }
         }
       }
 

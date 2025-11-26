@@ -30,13 +30,15 @@
       }
 
       // Fetch featured promotions
+      // Filter: is_featured = true, status = 'active', start_date <= now, (end_date IS NULL OR end_date >= now)
+      const now = new Date().toISOString();
       const { data: promotionsData, error: promotionsError } = await supabase
         .from('promotions')
         .select('*')
         .eq('is_featured', true)
         .eq('status', 'active')
-        .gte('start_date', new Date().toISOString())
-        .or('end_date.is.null,end_date.gte.' + new Date().toISOString())
+        .lte('start_date', now) // Promotion has started
+        .or(`end_date.is.null,end_date.gte.${now}`) // No end date OR hasn't ended yet
         .order('created_at', { ascending: false })
         .limit(8);
 

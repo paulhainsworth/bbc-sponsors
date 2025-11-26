@@ -1,0 +1,63 @@
+# Cursor Rules for BBC Sponsor App
+
+## Test Automation Requirements
+
+When creating any UI component or feature:
+
+1. **Always write a corresponding Playwright test** in `tests/` directory
+   - Test file should be named `[feature-name].spec.ts`
+   - Place tests in the `tests/` directory
+
+2. **Use semantic selectors** in tests:
+   - Prefer `getByRole()`, `getByLabel()`, `getByText()` over CSS selectors
+   - Example: `page.getByRole('button', { name: /sign in/i })` instead of `page.locator('.btn-primary')`
+
+3. **Test both happy path and error states**:
+   - Test successful user flows
+   - Test validation errors
+   - Test error handling (network failures, API errors)
+
+4. **For Supabase calls, include mocked failure responses**:
+   - Use `page.route()` to mock API responses
+   - Test both success and failure scenarios
+   - Example:
+     ```ts
+     await page.route('**/auth/v1/token*', route => {
+       route.fulfill({
+         status: 400,
+         json: { error: 'Invalid credentials' }
+       });
+     });
+     ```
+
+5. **Test structure**:
+   - Use `test.describe()` to group related tests
+   - Use `test.beforeEach()` for common setup (auth, mocks)
+   - Each test should be independent and not rely on other tests
+
+6. **Example test template**:
+   ```ts
+   import { test, expect } from '@playwright/test';
+   
+   test.describe('Feature Name', () => {
+     test('should do something', async ({ page }) => {
+       await page.goto('/path');
+       await expect(page.getByText('Expected Text')).toBeVisible();
+     });
+   });
+   ```
+
+## Code Quality
+
+- Use TypeScript for all new code
+- Follow existing code style and patterns
+- Add error handling for all async operations
+- Use Zod for schema validation where appropriate
+
+## Supabase Integration
+
+- Always handle RLS (Row Level Security) policies
+- Use service role key only in server-side API routes
+- Handle authentication state changes properly
+- Test with both authenticated and unauthenticated states
+

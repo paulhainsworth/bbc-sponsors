@@ -36,18 +36,34 @@
     sponsor = sponsorData;
 
     // Fetch active promotions for this sponsor
-    const { data: promotionsData } = await supabase
+    // Note: RLS policy "Anyone can view active promotions" should allow this
+    // But we need to filter correctly: start_date <= now AND (end_date IS NULL OR end_date >= now)
+    const now = new Date().toISOString();
+    console.log('Fetching promotions for sponsor:', sponsor.id, 'at time:', now);
+    
+    const { data: promotionsData, error: promotionsError } = await supabase
       .from('promotions')
       .select('*')
       .eq('sponsor_id', sponsor.id)
       .eq('status', 'active')
-      .gte('start_date', new Date().toISOString())
-      .or('end_date.is.null,end_date.gte.' + new Date().toISOString())
+      .lte('start_date', now) // Promotion has started
+      .or(`end_date.is.null,end_date.gte.${now}`) // No end date OR hasn't ended yet
       .order('is_featured', { ascending: false })
       .order('created_at', { ascending: false });
 
-    if (promotionsData) {
-      promotions = promotionsData;
+    if (promotionsError) {
+      console.error('Error fetching promotions:', promotionsError);
+      console.error('Error details:', JSON.stringify(promotionsError, null, 2));
+      promotions = [];
+    } else {
+      console.log('Fetched promotions:', promotionsData?.length || 0, 'promotions');
+      if (promotionsData) {
+        promotions = promotionsData;
+        // Log promotion details for debugging
+        promotions.forEach(p => {
+          console.log('Promotion:', p.title, 'Status:', p.status, 'Start:', p.start_date, 'End:', p.end_date);
+        });
+      }
     }
 
     loading = false;

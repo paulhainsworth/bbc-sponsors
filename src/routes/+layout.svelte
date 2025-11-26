@@ -10,20 +10,57 @@
 
   onMount(async () => {
     try {
-      // Get initial session
-      const {
-        data: { session },
-        error: sessionError
-      } = await supabase.auth.getSession();
+      // Wait for Supabase client to be ready and localStorage to be accessible
+      // This is especially important in test environments where storageState is restored
+      // Check if localStorage has a session before calling getSession()
+      const projectRef = typeof window !== 'undefined' 
+        ? (window.location.hostname.includes('localhost') ? 'uibbpcbshfkjcsnoscup' : null)
+        : null;
+      
+      if (projectRef && typeof window !== 'undefined') {
+        const storageKey = `sb-${projectRef}-auth-token`;
+        let attempts = 0;
+        
+        // Wait for session to be in localStorage (up to 2 seconds)
+        while (attempts < 10) {
+          const sessionData = localStorage.getItem(storageKey);
+          if (sessionData) break;
+          await new Promise(resolve => setTimeout(resolve, 200));
+          attempts++;
+        }
+      }
+      
+      // Small delay to ensure Supabase client has initialized
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Get initial session - retry if needed (for test environments)
+      let session = null;
+      let sessionError = null;
+      let attempts = 0;
+      
+      while (attempts < 5) {
+        const result = await supabase.auth.getSession();
+        session = result.data?.session;
+        sessionError = result.error;
+        
+        if (session || sessionError) break;
+        
+        // If no session and no error, wait a bit and retry (client might still be reading)
+        await new Promise(resolve => setTimeout(resolve, 300));
+        attempts++;
+      }
       
       if (sessionError) {
         console.error('Session error:', sessionError);
+        userStore.setUser(null);
+        userStore.setProfile(null);
+        userStore.setLoading(false);
         return;
       }
 
-      userStore.setUser(session?.user ?? null);
-
       if (session?.user) {
+        userStore.setUser(session.user);
+        
         // Fetch user profile
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
@@ -34,10 +71,18 @@
         if (profileError) {
           // Profile might not exist yet, that's okay
           console.log('Profile not found:', profileError.message);
+          userStore.setProfile(null);
         } else {
           userStore.setProfile(profile);
         }
+      } else {
+        // No session, set both to null and mark as not loading
+        userStore.setUser(null);
+        userStore.setProfile(null);
       }
+
+      // Mark loading as complete
+      userStore.setLoading(false);
 
       // Listen for auth changes
       supabase.auth.onAuthStateChange(async (event, session) => {
@@ -59,6 +104,7 @@
       });
     } catch (error) {
       console.error('Layout initialization error:', error);
+      userStore.setLoading(false);
     }
   });
 </script>
