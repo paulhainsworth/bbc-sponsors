@@ -26,3 +26,4 @@ CREATE POLICY "Sponsor admins can manage their promotions" ON promotions
     )
   );
 
+

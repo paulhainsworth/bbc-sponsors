@@ -74,3 +74,4 @@ Or apply the migration file: `supabase/migrations/007_fix_infinite_recursion.sql
 3. Should work without infinite recursion error
 4. Team member viewing should work via the API endpoint
 
+

@@ -72,3 +72,4 @@ Supabase SSR might expect cookies in a specific format. Need to verify the exact
 
 The application code with reactive statements is correct and will work in production. The test fixtures need one more adjustment to properly set the session in the test environment.
 
+

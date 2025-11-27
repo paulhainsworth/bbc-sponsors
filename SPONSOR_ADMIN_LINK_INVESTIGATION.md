@@ -86,3 +86,4 @@ Looking at the code:
 3. **Add E2E test** for the full invitation flow
 4. **Add monitoring** to alert when sponsor links fail to create
 
+

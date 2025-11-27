@@ -147,3 +147,4 @@ The issue is that **real users created through the invitation flow may not have 
 
 **Immediate Action Required**: Run the fix script or manually link affected users using the SQL queries above.
 
+

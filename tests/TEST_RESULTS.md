@@ -68,3 +68,4 @@
 3. Consider adding a test helper that waits for stores to be ready before navigating
 4. May need to adjust how Supabase session is stored in test context
 
+

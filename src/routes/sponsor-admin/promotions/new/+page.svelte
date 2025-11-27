@@ -3,6 +3,7 @@
   import { createClient } from '$lib/utils/supabase';
   import { userStore } from '$lib/stores/user';
   import { promotionSchema } from '$lib/utils/validators';
+  import RichTextEditor from '$lib/components/common/RichTextEditor.svelte';
   import type { z } from 'zod';
 
   type PromotionForm = z.infer<typeof promotionSchema>;
@@ -173,14 +174,11 @@
 
         <div>
           <label for="description" class="label">Description *</label>
-          <textarea
-            id="description"
+          <RichTextEditor
             bind:value={formData.description}
-            class="input"
-            rows="4"
-            required
-            maxlength="1000"
-          ></textarea>
+            placeholder="Enter promotion description..."
+            maxLength={1000}
+          />
           {#if errors.description}
             <p class="text-red-600 text-sm mt-1">{errors.description}</p>
           {/if}

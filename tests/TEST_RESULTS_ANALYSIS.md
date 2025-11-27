@@ -48,3 +48,4 @@ The storageState API is working correctly - cookies and localStorage are being r
 
 The authentication is working in the fixture (we can see authenticated content on `/`), but it's not persisting when navigating to new pages. This suggests the Supabase client needs more time to read the session, or the session format needs adjustment.
 
+

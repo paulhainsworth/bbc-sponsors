@@ -94,3 +94,4 @@ If scripts don't work, you can run SQL directly in Supabase:
    ON CONFLICT (sponsor_id, user_id) DO NOTHING;
    ```
 
+

@@ -78,3 +78,4 @@ In that case, we can:
 2. Verify the session is being set correctly in the auth callback
 3. Manually verify the sponsor link exists in the database
 
+

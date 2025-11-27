@@ -88,3 +88,4 @@ If you want to use a different database for tests:
 - Make sure sponsor_admins table has a record linking the user to a sponsor
 - See SQL above for linking sponsor admin to sponsor
 
+

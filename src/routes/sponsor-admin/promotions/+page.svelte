@@ -6,7 +6,9 @@
   import { formatDate } from '$lib/utils/formatters';
   import type { Database } from '$lib/types/database.types';
 
-  type Promotion = Database['public']['Tables']['promotions']['Row'];
+  type Promotion = Database['public']['Tables']['promotions']['Row'] & {
+    approval_status?: 'pending' | 'approved' | 'rejected' | null;
+  };
 
   let promotions: Promotion[] = [];
   let loading = true;
@@ -224,9 +226,24 @@
                 <span class="text-sm text-gray-900 capitalize">{promotion.promotion_type.replace('_', ' ')}</span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
-                <span class="px-2 py-1 text-xs font-semibold rounded-full {getStatusColor(promotion.status)}">
-                  {promotion.status}
-                </span>
+                <div class="flex flex-col gap-1">
+                  <span class="px-2 py-1 text-xs font-semibold rounded-full {getStatusColor(promotion.status)}">
+                    {promotion.status}
+                  </span>
+                  {#if promotion.approval_status === 'pending'}
+                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                      Pending Approval
+                    </span>
+                  {:else if promotion.approval_status === 'approved'}
+                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                      Approved
+                    </span>
+                  {:else if promotion.approval_status === 'rejected'}
+                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                      Rejected
+                    </span>
+                  {/if}
+                </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 <div>Start: {formatDate(promotion.start_date)}</div>
@@ -252,12 +269,16 @@
                       View Details
                     </a>
                   {/if}
-                  <button
-                    on:click={() => toggleStatus(promotion)}
-                    class="text-primary hover:text-primary-light"
-                  >
-                    {promotion.status === 'active' ? 'Deactivate' : 'Activate'}
-                  </button>
+                  {#if promotion.approval_status === 'pending'}
+                    <span class="text-gray-400 text-sm">Awaiting Approval</span>
+                  {:else}
+                    <button
+                      on:click={() => toggleStatus(promotion)}
+                      class="text-primary hover:text-primary-light"
+                    >
+                      {promotion.status === 'active' ? 'Deactivate' : 'Activate'}
+                    </button>
+                  {/if}
                   <a
                     href="/sponsor-admin/promotions/{promotion.id}"
                     class="text-primary hover:text-primary-light"

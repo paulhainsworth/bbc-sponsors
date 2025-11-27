@@ -52,3 +52,4 @@ CREATE POLICY "Sponsor admins can manage their promotions" ON promotions
 2. Try creating a promotion again
 3. Should work without RLS errors
 
+

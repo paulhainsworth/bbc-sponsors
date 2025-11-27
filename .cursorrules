@@ -61,3 +61,4 @@ When creating any UI component or feature:
 - Handle authentication state changes properly
 - Test with both authenticated and unauthenticated states
 
+

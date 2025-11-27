@@ -117,3 +117,4 @@ async function checkPromotions() {
 
 checkPromotions().catch(console.error);
 
+

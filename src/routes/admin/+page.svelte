@@ -88,6 +88,12 @@
           Add New Sponsor
         </a>
         <a
+          href="/admin/promotions"
+          class="px-4 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-center"
+        >
+          Review Promotions
+        </a>
+        <a
           href="/admin/posts/new"
           class="px-4 py-3 bg-secondary text-white rounded-lg hover:bg-secondary-light transition-colors text-center"
         >

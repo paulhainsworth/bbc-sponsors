@@ -29,3 +29,4 @@ All pages now:
 
 The 406 error should be gone now since we're no longer querying `sponsor_admins` directly from the browser.
 
+

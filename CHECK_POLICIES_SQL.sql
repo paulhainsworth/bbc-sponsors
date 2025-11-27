@@ -13,3 +13,4 @@ ORDER BY policyname;
 -- If the problematic policy exists, drop it:
 -- DROP POLICY IF EXISTS "Sponsor admins can view team members" ON sponsor_admins;
 
+

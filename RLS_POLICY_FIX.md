@@ -60,3 +60,4 @@ PostgreSQL RLS policies are combined with OR logic. The new policy explicitly al
 
 This eliminates the circular dependency while still allowing sponsor admins to view their team members.
 
+

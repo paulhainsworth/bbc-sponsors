@@ -47,3 +47,4 @@ This ensures that even if Supabase drops the query parameters, we can still find
 3. Click the magic link
 4. Should redirect to `/auth/accept-invitation?token=...` even if the original redirect URL lost the token
 
+

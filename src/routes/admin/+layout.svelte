@@ -46,6 +46,7 @@
             <div class="flex gap-4">
               <a href="/admin" class="hover:opacity-80 transition-opacity">Dashboard</a>
               <a href="/admin/sponsors" class="hover:opacity-80 transition-opacity">Sponsors</a>
+              <a href="/admin/promotions" class="hover:opacity-80 transition-opacity">Promotions</a>
               <a href="/admin/posts" class="hover:opacity-80 transition-opacity">Posts</a>
               <a href="/admin/admins" class="hover:opacity-80 transition-opacity">Admins</a>
               <a href="/admin/settings" class="hover:opacity-80 transition-opacity">Settings</a>

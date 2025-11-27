@@ -29,3 +29,4 @@ ORDER BY policyname;
 -- 3. "Super admins can manage sponsor admins" (ALL, checks profiles table)
 -- 4. "Sponsor admins can remove team members" (DELETE, checks profiles table)
 
+

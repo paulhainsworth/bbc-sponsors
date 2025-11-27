@@ -87,3 +87,4 @@ test('sponsor admin can query their own sponsor link', async ({ sponsorAdminPage
 
 The fix ensures that all queries use `session.user.id` which matches `auth.uid()` in the RLS policy, resolving the "No sponsor associated" error for users who have valid sponsor links in the database.
 
+

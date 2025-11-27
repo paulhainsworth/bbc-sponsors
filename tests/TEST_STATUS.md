@@ -94,3 +94,4 @@ The fixtures should wait for profiles to be created after signup.
 - Tests use real Supabase, so they test actual behavior
 - Consider using a dedicated test database for faster, isolated tests
 
+
