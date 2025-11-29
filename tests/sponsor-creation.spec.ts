@@ -1,19 +1,11 @@
 import { test, expect } from './fixtures/auth';
+import { navigateWithAuth } from './helpers/navigation';
 
 test.describe('Sponsor Creation Flow', () => {
 
   test('sponsor creation form renders all fields', async ({ superAdminPage: page }) => {
-    // Navigate to the form page
-    await page.goto('/admin/sponsors/new', { waitUntil: 'networkidle' });
-    
-    // Immediately re-verify session is available after navigation
-    // This ensures the Supabase client has read the session before layout checks
-    if ((page as any).ensureSessionAvailable) {
-      await (page as any).ensureSessionAvailable();
-    }
-    
-    // Wait for URL - should be on the form page, not login
-    await page.waitForURL(/\/admin\/sponsors\/new/, { timeout: 20000 });
+    // Navigate to the form page with auth handling
+    await navigateWithAuth(page, '/admin/sponsors/new');
     
     // Wait for page to be fully loaded
     await page.waitForLoadState('domcontentloaded');
@@ -47,10 +39,7 @@ test.describe('Sponsor Creation Flow', () => {
     await page.waitForSelector('#tagline', { state: 'attached', timeout: 15000 });
     await page.waitForSelector('#description', { state: 'attached', timeout: 15000 });
     
-    // Wait a bit for reactive statements to finish
-    await page.waitForTimeout(2000);
-    
-    // Now check visibility using labels
+    // Wait for fields to be visible (this also waits for reactive statements)
     await expect(page.getByLabel(/sponsor name/i)).toBeVisible({ timeout: 15000 });
     await expect(page.getByLabel(/tagline/i)).toBeVisible({ timeout: 10000 });
     await expect(page.getByLabel(/description/i)).toBeVisible({ timeout: 10000 });
@@ -67,17 +56,8 @@ test.describe('Sponsor Creation Flow', () => {
   });
 
   test('shows validation errors for empty required fields', async ({ superAdminPage: page }) => {
-    // Navigate to the form page
-    await page.goto('/admin/sponsors/new', { waitUntil: 'networkidle' });
-    
-    // Immediately re-verify session is available after navigation
-    // This ensures the Supabase client has read the session before layout checks
-    if ((page as any).ensureSessionAvailable) {
-      await (page as any).ensureSessionAvailable();
-    }
-    
-    // Wait for URL - should be on the form page, not login
-    await page.waitForURL(/\/admin\/sponsors\/new/, { timeout: 20000 });
+    // Navigate to the form page with auth handling
+    await navigateWithAuth(page, '/admin/sponsors/new');
     
     // Wait for page to be fully loaded
     await page.waitForLoadState('domcontentloaded');
@@ -97,10 +77,7 @@ test.describe('Sponsor Creation Flow', () => {
       { timeout: 25000 }
     );
     
-    // Wait a bit for reactive statements to finish
-    await page.waitForTimeout(2000);
-    
-    // Wait for form fields to be ready
+    // Wait for form fields to be ready (this also waits for reactive statements)
     const sponsorNameField = page.getByLabel(/sponsor name/i);
     await expect(sponsorNameField).toBeVisible({ timeout: 15000 });
     
@@ -111,7 +88,23 @@ test.describe('Sponsor Creation Flow', () => {
     await createButton.click();
     
     // Wait for validation to run - either HTML5 validation or custom error messages
-    await page.waitForTimeout(2000);
+    await page.waitForFunction(
+      () => {
+        // Check for HTML5 validation
+        const nameInput = document.getElementById('name') as HTMLInputElement;
+        const hasHtml5Error = nameInput && !nameInput.validity.valid;
+        
+        // Check for custom error messages
+        const hasCustomError = document.querySelector('.text-red-600, [class*="error"]') !== null ||
+                              Array.from(document.querySelectorAll('*')).some(
+                                el => el.textContent?.toLowerCase().includes('required') ||
+                                      el.textContent?.toLowerCase().includes('error')
+                              );
+        
+        return hasHtml5Error || hasCustomError;
+      },
+      { timeout: 5000 }
+    ).catch(() => {}); // If validation doesn't trigger, continue anyway
     
     // Check for validation errors - could be HTML5 validation or custom error messages
     const hasHtml5Error = await sponsorNameField.evaluate((el: HTMLInputElement) => {
@@ -143,17 +136,8 @@ test.describe('Sponsor Creation Flow', () => {
       }
     });
 
-    // Navigate to the form page
-    await page.goto('/admin/sponsors/new', { waitUntil: 'networkidle' });
-    
-    // Immediately re-verify session is available after navigation
-    // This ensures the Supabase client has read the session before layout checks
-    if ((page as any).ensureSessionAvailable) {
-      await (page as any).ensureSessionAvailable();
-    }
-    
-    // Wait for URL - should be on the form page, not login
-    await page.waitForURL(/\/admin\/sponsors\/new/, { timeout: 20000 });
+    // Navigate to the form page with auth handling
+    await navigateWithAuth(page, '/admin/sponsors/new');
     
     // Wait for layout and form to be ready
     await page.waitForSelector('nav', { state: 'visible', timeout: 30000 });
@@ -163,10 +147,7 @@ test.describe('Sponsor Creation Flow', () => {
     // Wait for form to have the name input field
     await page.waitForSelector('#name', { state: 'visible', timeout: 20000 });
     
-    // Wait a bit for reactive statements to finish
-    await page.waitForTimeout(1000);
-    
-    // Wait for form fields to be ready
+    // Wait for form fields to be ready (this also waits for reactive statements)
     const sponsorNameField = page.getByLabel(/sponsor name/i);
     await expect(sponsorNameField).toBeVisible({ timeout: 15000 });
     
@@ -216,17 +197,8 @@ test.describe('Sponsor Creation Flow', () => {
       });
     });
 
-    // Navigate to the form page
-    await page.goto('/admin/sponsors/new', { waitUntil: 'networkidle' });
-    
-    // Immediately re-verify session is available after navigation
-    // This ensures the Supabase client has read the session before layout checks
-    if ((page as any).ensureSessionAvailable) {
-      await (page as any).ensureSessionAvailable();
-    }
-    
-    // Wait for URL - should be on the form page, not login
-    await page.waitForURL(/\/admin\/sponsors\/new/, { timeout: 20000 });
+    // Navigate to the form page with auth handling
+    await navigateWithAuth(page, '/admin/sponsors/new');
     
     // Wait for layout and form to be ready
     await page.waitForSelector('nav', { state: 'visible', timeout: 30000 });
@@ -236,10 +208,7 @@ test.describe('Sponsor Creation Flow', () => {
     // Wait for form to have the name input field
     await page.waitForSelector('#name', { state: 'visible', timeout: 20000 });
     
-    // Wait a bit for reactive statements to finish
-    await page.waitForTimeout(1000);
-    
-    // Wait for form fields to be ready
+    // Wait for form fields to be ready (this also waits for reactive statements)
     const sponsorNameField = page.getByLabel(/sponsor name/i);
     await expect(sponsorNameField).toBeVisible({ timeout: 15000 });
     

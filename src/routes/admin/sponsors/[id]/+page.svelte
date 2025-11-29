@@ -130,14 +130,50 @@
       }
 
       // Generate slug if name changed
-      const slug = sponsor?.name !== cleanedData.name ? generateSlug(cleanedData.name) : sponsor?.slug;
+      let newSlug = sponsor?.slug;
+      if (sponsor?.name !== cleanedData.name) {
+        const baseSlug = generateSlug(cleanedData.name);
+        newSlug = baseSlug;
+        
+        // Check if slug already exists for a different sponsor
+        const { data: existingSponsor } = await supabase
+          .from('sponsors')
+          .select('id')
+          .eq('slug', baseSlug)
+          .neq('id', sponsorId)
+          .single();
+        
+        // If slug exists, append a number to make it unique
+        if (existingSponsor) {
+          let counter = 1;
+          let uniqueSlug = `${baseSlug}-${counter}`;
+          let slugExists = true;
+          
+          while (slugExists) {
+            const { data: checkSponsor } = await supabase
+              .from('sponsors')
+              .select('id')
+              .eq('slug', uniqueSlug)
+              .neq('id', sponsorId)
+              .single();
+            
+            if (!checkSponsor) {
+              slugExists = false;
+              newSlug = uniqueSlug;
+            } else {
+              counter++;
+              uniqueSlug = `${baseSlug}-${counter}`;
+            }
+          }
+        }
+      }
 
       // Update sponsor
       const { error: updateError } = await supabase
         .from('sponsors')
         .update({
           name: cleanedData.name,
-          slug: slug || sponsor?.slug,
+          slug: newSlug || sponsor?.slug,
           tagline: cleanedData.tagline,
           description: cleanedData.description,
           category: cleanedData.category,

@@ -38,16 +38,32 @@
         .order('created_at', { ascending: false });
 
       if (filter === 'pending') {
-        query = query.eq('approval_status', 'pending').or('approval_status.is.null');
+        // Show promotions that need approval:
+        // Check for approval_status = 'pending' OR status = 'pending_approval'
+        // Use PostgREST or() syntax: field1.eq.value1,field2.eq.value2
+        query = query.or('approval_status.eq.pending,status.eq.pending_approval');
       }
 
       const { data, error: queryError } = await query;
 
       if (queryError) {
+        console.error('Query error:', queryError);
         throw queryError;
       }
 
-      promotions = data || [];
+      // If filter is pending, also filter in-memory for any edge cases
+      if (filter === 'pending' && data) {
+        promotions = data.filter((p: Promotion) => {
+          const status = p.status as string; // Type assertion since 'pending_approval' may not be in types yet
+          return (
+            p.approval_status === 'pending' || 
+            status === 'pending_approval' ||
+            (p.approval_status === null && status === 'pending_approval')
+          );
+        });
+      } else {
+        promotions = data || [];
+      }
     } catch (err: any) {
       console.error('Error loading promotions:', err);
       error = err.message || 'Failed to load promotions';
@@ -67,7 +83,15 @@
 
 <div class="container mx-auto px-4 py-8">
   <div class="mb-6">
-    <h1 class="text-3xl font-bold mb-4">Promotion Approvals</h1>
+    <div class="flex items-center justify-between mb-4">
+      <h1 class="text-3xl font-bold">Promotion Approvals</h1>
+      <a
+        href="/admin/promotions/new"
+        class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors"
+      >
+        + Create Promotion
+      </a>
+    </div>
     
     <div class="flex gap-4 mb-4">
       <button

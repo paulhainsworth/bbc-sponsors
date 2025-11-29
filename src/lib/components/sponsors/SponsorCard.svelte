@@ -28,12 +28,12 @@
       </div>
     {/if}
 
-    <h3 class="text-xl font-semibold mb-2 group-hover:text-primary transition-colors">
+    <h3 class="text-xl font-semibold mb-1 group-hover:text-primary transition-colors">
       {sponsor.name}
     </h3>
 
     {#if sponsor.tagline}
-      <p class="text-sm text-gray-600 text-center mb-3">{sponsor.tagline}</p>
+      <p class="text-sm text-gray-500 text-center mb-3 italic px-2">{sponsor.tagline}</p>
     {/if}
 
     {#if sponsor.category.length > 0}

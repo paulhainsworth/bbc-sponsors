@@ -57,6 +57,9 @@ export const sponsorSchema = z.object({
   social_twitter: urlOrEmpty
 });
 
+// Schema for sponsor updates (excludes name since it can't be changed by sponsor admins)
+export const sponsorUpdateSchema = sponsorSchema.omit({ name: true });
+
 export const promotionSchema = z
   .object({
     title: z.string().min(1, 'Title is required').max(100),

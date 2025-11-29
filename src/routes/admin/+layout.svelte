@@ -7,18 +7,31 @@
 
   // Use reactive statement to check auth when store finishes loading
   // Only redirect if we're not already on the target page
+  // PHASE 1 FIX: Wait for profile to actually be loaded before redirecting
+  let profileCheckTimeout: ReturnType<typeof setTimeout> | null = null;
   $: if (browser && !$userStore.loading) {
-    const currentPath = $page.url.pathname;
-    
-    if (!$userStore.profile) {
-      if (!currentPath.startsWith('/auth/login')) {
-        goto('/auth/login?redirect=/admin');
-      }
-    } else if ($userStore.profile.role !== 'super_admin') {
-      if (currentPath.startsWith('/admin')) {
-        goto('/');
-      }
+    // Clear any pending timeout
+    if (profileCheckTimeout) {
+      clearTimeout(profileCheckTimeout);
     }
+    
+    // Wait a bit for profile to be set (it's loaded async in root layout)
+    // This is especially important in test environments where session restoration takes time
+    profileCheckTimeout = setTimeout(() => {
+      const currentPath = $page.url.pathname;
+      
+      // Only redirect if we still don't have a profile after waiting
+      // This prevents premature redirects during async profile loading
+      if (!$userStore.profile) {
+        if (!currentPath.startsWith('/auth/login')) {
+          goto('/auth/login?redirect=/admin');
+        }
+      } else if ($userStore.profile.role !== 'super_admin') {
+        if (currentPath.startsWith('/admin')) {
+          goto('/');
+        }
+      }
+    }, 1000); // Increased delay to allow profile to be set
   }
 
   // Loading state is true while:

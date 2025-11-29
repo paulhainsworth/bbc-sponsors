@@ -133,6 +133,7 @@
       }
 
       // Update promotion via server-side API (bypasses RLS)
+      console.log('Updating promotion:', { promotionId, cleanedData });
       const response = await fetch('/api/sponsor-admin/promotions/update', {
         method: 'POST',
         headers: {
@@ -152,6 +153,24 @@
           // Only super admins can feature promotions via the admin panel
         })
       });
+      
+      console.log('Response status:', response.status, response.statusText);
+
+      // Check if response is ok before parsing JSON
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = `Failed to update promotion (${response.status})`;
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.error || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        console.error('API error:', errorMessage);
+        errors.submit = errorMessage;
+        saving = false;
+        return;
+      }
 
       const apiResult = await response.json();
 
@@ -164,9 +183,9 @@
 
       // Redirect to promotions list
       goto('/sponsor-admin/promotions');
-    } catch (error) {
-      errors.submit = 'An unexpected error occurred';
-      console.error(error);
+    } catch (error: any) {
+      console.error('Error updating promotion:', error);
+      errors.submit = error.message || 'An unexpected error occurred. Please try again.';
     } finally {
       saving = false;
     }
@@ -192,7 +211,7 @@
       {errors.submit}
     </div>
   {:else if promotion}
-    <form on:submit|preventDefault={handleSubmit} class="bg-white rounded-lg shadow-md p-6 space-y-6">
+    <form on:submit|preventDefault={handleSubmit} class="bg-white rounded-lg shadow-md p-6 space-y-6" data-testid="edit-promotion-form">
       {#if errors.submit}
         <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded mb-4">
           <p class="font-semibold">Error:</p>
@@ -217,6 +236,9 @@
       <div class="bg-gray-50 border border-gray-200 rounded p-4">
         <p class="text-sm text-gray-600">
           <strong>Status:</strong> <span class="capitalize">{promotion.status}</span>
+          {#if promotion.status === 'active'}
+            <span class="ml-2 text-xs text-gray-500">(You can edit active promotions)</span>
+          {/if}
         </p>
       </div>
 
@@ -233,6 +255,7 @@
               class="input"
               required
               maxlength="100"
+              data-testid="promotion-title-input"
             />
             {#if errors.title}
               <p class="text-red-600 text-sm mt-1">{errors.title}</p>
@@ -253,7 +276,7 @@
 
           <div>
             <label for="promotion_type" class="label">Promotion Type *</label>
-            <select id="promotion_type" bind:value={formData.promotion_type} class="input">
+            <select id="promotion_type" bind:value={formData.promotion_type} class="input" data-testid="promotion-type-select">
               <option value="evergreen">Evergreen (Ongoing)</option>
               <option value="time_limited">Time Limited</option>
               <option value="coupon_code">Coupon Code</option>
@@ -355,6 +378,7 @@
           type="submit"
           disabled={saving}
           class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors disabled:opacity-50"
+          data-testid="save-promotion-button"
         >
           {saving ? 'Saving...' : 'Save Changes'}
         </button>

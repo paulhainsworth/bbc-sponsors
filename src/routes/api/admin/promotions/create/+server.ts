@@ -1,6 +1,6 @@
 /**
- * Server-side API endpoint to create a promotion
- * This bypasses RLS by using the service role key
+ * Server-side API endpoint to create a promotion as a super admin
+ * This allows super admins to create promotions for any sponsor
  */
 
 import { json } from '@sveltejs/kit';
@@ -46,16 +46,16 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
       }
     });
 
-    // Verify user is a sponsor admin and get their sponsor_id
-    const { data: sponsorAdmin, error: linkError } = await supabaseAdmin
-      .from('sponsor_admins')
-      .select('sponsor_id')
-      .eq('user_id', session.user.id)
+    // Verify user is a super admin
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
       .single();
 
-    if (linkError || !sponsorAdmin) {
+    if (profileError || profile?.role !== 'super_admin') {
       return json(
-        { success: false, error: 'No sponsor associated with your account' },
+        { success: false, error: 'Unauthorized: Only super admins can create promotions' },
         { status: 403 }
       );
     }
@@ -63,6 +63,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     // Get promotion data from request
     const body = await request.json();
     const {
+      sponsor_id,
       title,
       description,
       promotion_type,
@@ -71,27 +72,40 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
       coupon_code,
       external_link,
       terms,
-      is_featured,
-      status = 'active' // Default to 'active' so promotions show immediately
+      is_featured = false,
+      status = 'active', // Super admins can create active promotions directly
+      publish_to_site = true,
+      publish_to_slack = false,
+      slack_channel = null
     } = body;
 
     // Validate required fields
-    if (!title || !description || !promotion_type) {
+    if (!sponsor_id || !title || !description || !promotion_type) {
       return json(
-        { success: false, error: 'Title, description, and promotion type are required' },
+        { success: false, error: 'Sponsor ID, title, description, and promotion type are required' },
         { status: 400 }
       );
     }
 
-    // Sponsor admins cannot feature promotions - only super admins can
-    // Always set is_featured to false for sponsor admin-created promotions
-    const isFeatured = false;
+    // Verify sponsor exists
+    const { data: sponsor, error: sponsorError } = await supabaseAdmin
+      .from('sponsors')
+      .select('id')
+      .eq('id', sponsor_id)
+      .single();
 
-    // Create promotion with pending_approval status (requires super admin approval)
+    if (sponsorError || !sponsor) {
+      return json(
+        { success: false, error: 'Sponsor not found' },
+        { status: 404 }
+      );
+    }
+
+    // Create promotion - super admins can set all fields including is_featured
     const { data: promotion, error: promotionError } = await supabaseAdmin
       .from('promotions')
       .insert({
-        sponsor_id: sponsorAdmin.sponsor_id,
+        sponsor_id,
         title,
         description,
         promotion_type,
@@ -100,9 +114,14 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         coupon_code: coupon_code || null,
         external_link: external_link || null,
         terms: terms || null,
-        is_featured: isFeatured, // Always false for sponsor admins
-        status: 'pending_approval', // Requires super admin approval
-        approval_status: 'pending',
+        is_featured: is_featured || false,
+        status: status === 'active' ? 'active' : 'draft',
+        approval_status: status === 'active' ? 'approved' : 'pending',
+        approved_by: status === 'active' ? session.user.id : null,
+        approved_at: status === 'active' ? new Date().toISOString() : null,
+        publish_to_site: publish_to_site || false,
+        publish_to_slack: publish_to_slack || false,
+        slack_channel: slack_channel || null,
         created_by: session.user.id
       })
       .select()
@@ -128,28 +147,40 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
       );
     }
 
-    // Send email notification to super admins (async, don't wait)
-    // Use the request URL to determine the base URL
-    const baseUrl = request.headers.get('origin') || env.PUBLIC_APP_URL || 'http://localhost:5173';
-    fetch(`${baseUrl}/api/admin/notify-promotion-pending`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${env.SLACK_WEBHOOK_SECRET_KEY || ''}`
-      },
-      body: JSON.stringify({
-        promotionId: promotion.id,
-        sponsorId: sponsorAdmin.sponsor_id
-      })
-    }).catch((emailError) => {
-      console.error('Error sending email notification:', emailError);
-      // Don't fail the promotion creation if email fails
-    });
+    // If approved and publishToSlack is true, send to Slack
+    if (status === 'active' && publish_to_slack && promotion) {
+      try {
+        const { data: promotionWithSponsor } = await supabaseAdmin
+          .from('promotions')
+          .select('*, sponsors(name, slug)')
+          .eq('id', promotion.id)
+          .single();
+
+        if (promotionWithSponsor) {
+          await fetch(`${env.PUBLIC_APP_URL || 'http://localhost:5173'}/api/slack/post-promotion`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${env.SLACK_WEBHOOK_SECRET_KEY || ''}`
+            },
+            body: JSON.stringify({
+              promotion: promotionWithSponsor,
+              channel: slack_channel
+            })
+          });
+        }
+      } catch (slackError) {
+        console.error('Error sending Slack notification:', slackError);
+        // Don't fail the promotion creation if Slack notification fails
+      }
+    }
 
     return json({
       success: true,
       promotion,
-      message: 'Promotion created and submitted for approval. You will be notified once it is reviewed.'
+      message: status === 'active' 
+        ? 'Promotion created and published successfully.' 
+        : 'Promotion created successfully.'
     });
   } catch (error) {
     console.error('Create promotion error:', error);

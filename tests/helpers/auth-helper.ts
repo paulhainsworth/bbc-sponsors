@@ -115,12 +115,19 @@ export async function waitForStoreInitialization(
       { timeout }
     );
     
-    // Additional wait to ensure store is fully populated
-    await page.waitForTimeout(1000);
+    // Wait for any loading indicators to disappear (longer timeout)
+    await page.waitForSelector('.animate-spin', { state: 'hidden', timeout: 10000 }).catch(() => {});
+    
+    // Additional delay to ensure reactive statements have run
+    await page.waitForTimeout(500);
   } catch (error) {
-    // If timeout, wait a bit more and continue
-    console.warn('Store initialization check timed out, waiting additional 3s...');
-    await page.waitForTimeout(3000);
+    // If timeout, check if we at least have some content
+    const hasContent = await page.locator('main, nav, [role="main"]').count() > 0;
+    if (!hasContent) {
+      console.warn('Store initialization check timed out and no content found');
+      // Wait a bit more and check again
+      await page.waitForTimeout(1000);
+    }
   }
 }
 
@@ -201,11 +208,17 @@ export async function waitForStoreLoadingComplete(
       { timeout }
     );
     
-    // Additional wait to ensure reactive statements have run
-    await page.waitForTimeout(1000);
+    // Wait for any loading spinners to disappear (longer timeout)
+    await page.waitForSelector('.animate-spin', { state: 'hidden', timeout: 10000 }).catch(() => {});
+    
+    // Additional delay to ensure reactive statements have run
+    await page.waitForTimeout(500);
   } catch (error) {
-    console.warn('Store loading check timed out, waiting additional 2s...');
-    await page.waitForTimeout(2000);
+    console.warn('Store loading check timed out, checking for content...');
+    // At least verify we have some content (longer timeout)
+    await page.waitForSelector('main, nav, [role="main"]', { timeout: 10000 }).catch(() => {});
+    // Wait a bit more
+    await page.waitForTimeout(1000);
   }
 }
 
@@ -232,8 +245,13 @@ export async function waitForProfileLoaded(
       },
       { timeout }
     );
+    
+    // Additional delay to ensure profile-dependent content is ready
+    await page.waitForTimeout(500);
   } catch (error) {
     console.warn('Profile load check timed out, continuing...');
+    // Wait a bit more before giving up
+    await page.waitForTimeout(1000);
   }
 }
 

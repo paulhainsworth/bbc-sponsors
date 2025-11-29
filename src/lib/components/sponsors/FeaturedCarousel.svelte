@@ -13,18 +13,22 @@
   let currentIndex = 0;
   let autoplayInterval: ReturnType<typeof setInterval>;
   let sponsorSlugs: Record<string, string> = {};
+  let sponsorLogos: Record<string, string | null> = {};
+  let sponsorNames: Record<string, string> = {};
 
   onMount(async () => {
-    // Fetch sponsor slugs for promotions
+    // Fetch sponsor data (slug, logo, name) for promotions
     if (promotions.length > 0) {
       const sponsorIds = [...new Set(promotions.map((p) => p.sponsor_id))];
       const { data: sponsorsData } = await supabase
         .from('sponsors')
-        .select('id, slug')
+        .select('id, slug, logo_url, name')
         .in('id', sponsorIds);
 
       if (sponsorsData) {
         sponsorSlugs = Object.fromEntries(sponsorsData.map((s) => [s.id, s.slug]));
+        sponsorLogos = Object.fromEntries(sponsorsData.map((s) => [s.id, s.logo_url]));
+        sponsorNames = Object.fromEntries(sponsorsData.map((s) => [s.id, s.name]));
       }
     }
 
@@ -76,41 +80,61 @@
         {#each promotions as promotion (promotion.id)}
           <div class="min-w-full flex-shrink-0">
             <div class="card bg-gradient-to-r from-primary to-primary-dark text-white">
-              <div class="flex flex-col md:flex-row items-center gap-6">
-                <div class="flex-1">
-                  <div class="flex items-center gap-2 mb-2">
+              <div class="flex flex-col gap-6">
+                <div class="flex items-start gap-4">
+                  <div class="flex flex-col items-start gap-2">
                     <span class="bg-secondary text-gray-900 px-2 py-1 rounded text-sm font-semibold">
                       Featured
                     </span>
+                    {#if sponsorLogos[promotion.sponsor_id]}
+                      <img
+                        src={sponsorLogos[promotion.sponsor_id]}
+                        alt={sponsorNames[promotion.sponsor_id] || 'Sponsor logo'}
+                        class="w-20 h-20 object-contain bg-white/10 rounded-lg p-2"
+                      />
+                    {:else}
+                      <div class="w-20 h-20 bg-white/10 rounded-lg flex items-center justify-center">
+                        <span class="text-white/60 text-lg font-bold">
+                          {sponsorNames[promotion.sponsor_id]?.charAt(0).toUpperCase() || '?'}
+                        </span>
+                      </div>
+                    {/if}
+                  </div>
+                  <div class="flex-1">
                     {#if promotion.end_date}
-                      <span class="text-sm opacity-90">
+                      <span class="text-sm opacity-90 mb-2 block">
                         {formatExpirationDate(promotion.end_date)}
                       </span>
                     {/if}
-                  </div>
-                  <h3 class="text-2xl font-bold mb-2">{promotion.title}</h3>
-                  <p class="text-white/90 mb-4 line-clamp-2">{promotion.description}</p>
-                  {#if promotion.coupon_code}
-                    <div class="flex items-center gap-2 mb-4">
-                      <span class="font-mono bg-white/20 px-3 py-1 rounded">
-                        {promotion.coupon_code}
-                      </span>
-                      <button
-                        class="text-sm underline hover:no-underline"
-                        on:click|stopPropagation={() => {
-                          navigator.clipboard.writeText(promotion.coupon_code || '');
-                        }}
-                      >
-                        Copy
-                      </button>
+                    <h3 class="text-2xl font-bold mb-2">{promotion.title}</h3>
+                    {#if sponsorNames[promotion.sponsor_id]}
+                      <p class="text-white/80 text-sm mb-2">from {sponsorNames[promotion.sponsor_id]}</p>
+                    {/if}
+                    <div class="text-white/90 mb-4 line-clamp-3 featured-promotion-description">
+                      {@html promotion.description}
                     </div>
-                  {/if}
-                  <button
-                    class="btn btn-secondary"
-                    on:click={() => handlePromotionClick(promotion)}
-                  >
-                    {promotion.external_link ? 'Shop Now' : 'View Details'}
-                  </button>
+                    {#if promotion.coupon_code}
+                      <div class="flex items-center gap-2 mb-4">
+                        <span class="font-mono bg-white/20 px-3 py-1 rounded">
+                          {promotion.coupon_code}
+                        </span>
+                        <button
+                          class="text-sm underline hover:no-underline"
+                          on:click|stopPropagation={() => {
+                            navigator.clipboard.writeText(promotion.coupon_code || '');
+                          }}
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    {/if}
+                    <button
+                      class="btn btn-secondary"
+                      on:click={() => handlePromotionClick(promotion)}
+                    >
+                      {promotion.external_link ? 'Shop Now' : 'View Details'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -131,3 +155,39 @@
     {/if}
   </div>
 {/if}
+
+<style>
+  :global(.featured-promotion-description) {
+    /* Style for rich text content in carousel */
+  }
+  
+  :global(.featured-promotion-description img) {
+    max-width: 100%;
+    max-height: 200px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 0.5rem;
+    margin: 0.5rem 0;
+    display: block;
+  }
+  
+  :global(.featured-promotion-description p) {
+    margin: 0.5rem 0;
+  }
+  
+  :global(.featured-promotion-description a) {
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: underline;
+  }
+  
+  :global(.featured-promotion-description a:hover) {
+    color: white;
+  }
+  
+  /* Limit text content to prevent overflow, but allow images */
+  :global(.featured-promotion-description) {
+    max-height: 300px;
+    overflow: hidden;
+  }
+</style>

@@ -166,11 +166,12 @@
   <div class="flex items-center justify-between mb-6">
     <div>
       <a href="/sponsor-admin" class="text-white hover:opacity-80 transition-opacity">← Back to Dashboard</a>
-      <h1 class="text-3xl font-bold mt-4 text-white">Promotions</h1>
+      <h1 class="text-3xl font-bold mt-4 text-white" data-testid="promotions-heading">Promotions</h1>
     </div>
     <a
       href="/sponsor-admin/promotions/new"
       class="px-4 py-2 bg-white text-primary rounded-lg hover:bg-gray-100 transition-colors font-semibold"
+      data-testid="create-promotion-button"
     >
       + Create Promotion
     </a>
@@ -186,13 +187,14 @@
       <a
         href="/sponsor-admin/promotions/new"
         class="inline-block px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors"
+        data-testid="create-promotion-button-empty"
       >
         Create Your First Promotion
       </a>
     </div>
   {:else}
     <div class="bg-white rounded-lg shadow-md overflow-hidden">
-      <table class="min-w-full divide-y divide-gray-200">
+      <table class="min-w-full divide-y divide-gray-200" data-testid="promotions-table">
         <thead class="bg-gray-50">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -275,6 +277,7 @@
                     <button
                       on:click={() => toggleStatus(promotion)}
                       class="text-primary hover:text-primary-light"
+                      data-testid="toggle-status-button"
                     >
                       {promotion.status === 'active' ? 'Deactivate' : 'Activate'}
                     </button>
@@ -282,12 +285,14 @@
                   <a
                     href="/sponsor-admin/promotions/{promotion.id}"
                     class="text-primary hover:text-primary-light"
+                    data-testid="edit-promotion-link"
                   >
                     Edit
                   </a>
                   <button
                     on:click={() => deletePromotion(promotion)}
                     class="text-red-600 hover:text-red-800"
+                    data-testid="delete-promotion-button"
                   >
                     Delete
                   </button>

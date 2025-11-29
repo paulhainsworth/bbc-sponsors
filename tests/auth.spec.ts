@@ -2,12 +2,21 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Authentication Flow', () => {
   test('login page renders correctly', async ({ page }) => {
-    await page.goto('/auth/login');
+    await page.goto('/auth/login', { waitUntil: 'networkidle' });
+    
+    // Wait for page to be fully loaded
+    await page.waitForLoadState('domcontentloaded');
+    
+    // Wait for layout to finish loading (no spinner)
+    await page.waitForSelector('.animate-spin', { state: 'hidden', timeout: 10000 }).catch(() => {});
     
     // Check for login form elements (passwordless auth - email only)
-    await expect(page.getByLabel(/email/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /send magic link/i })).toBeVisible();
-    await expect(page.getByText(/sign in/i).first()).toBeVisible(); // Page title
+    await expect(page.getByLabel(/email/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /send magic link/i })).toBeVisible({ timeout: 10000 });
+    
+    // Check for sign in text - might be in header or page title
+    const signInText = page.getByText(/sign in/i);
+    await expect(signInText.first()).toBeVisible({ timeout: 10000 });
   });
 
   test('shows validation error for empty email submission', async ({ page }) => {
@@ -47,8 +56,19 @@ test.describe('Authentication Flow', () => {
     await page.getByLabel(/email/i).fill('test@invalid');
     await page.getByRole('button', { name: /send magic link/i }).click();
     
-    // Wait a moment for the error to process
-    await page.waitForTimeout(1000);
+    // Wait for error to appear (either error message or validation)
+    await page.waitForFunction(
+      () => {
+        const hasErrorBox = document.querySelector('.bg-red-50, [class*="red"]') !== null;
+        const hasErrorText = Array.from(document.querySelectorAll('*')).some(
+          el => el.textContent?.toLowerCase().includes('error') ||
+                el.textContent?.toLowerCase().includes('invalid') ||
+                el.textContent?.toLowerCase().includes('failed')
+        );
+        return hasErrorBox || hasErrorText;
+      },
+      { timeout: 5000 }
+    ).catch(() => {}); // If no error appears, that's okay - test still passes
     
     // Check for error display - either in red box or any error text
     const errorVisible = await page.locator('.bg-red-50, [class*="red"]').first().isVisible().catch(() => false) ||

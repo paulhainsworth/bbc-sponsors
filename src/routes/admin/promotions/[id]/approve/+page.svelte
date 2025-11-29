@@ -146,6 +146,45 @@
       saving = false;
     }
   }
+
+  async function toggleFeatured() {
+    if (!promotion) return;
+
+    saving = true;
+    error = null;
+
+    try {
+      const response = await fetch('/api/admin/promotions/approve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          promotionId: promotion.id,
+          action: 'approve', // Re-approve with updated featured status
+          publishToSite: promotion.publish_to_site || false,
+          publishToSlack: promotion.publish_to_slack || false,
+          isFeatured: !promotion.is_featured, // Toggle featured status
+          slackChannel: promotion.slack_channel || 'sponsor-news',
+          approvalNotes: promotion.approval_notes || null
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update featured status');
+      }
+
+      // Reload promotion to reflect changes
+      await loadPromotion();
+    } catch (err: any) {
+      console.error('Error toggling featured status:', err);
+      error = err.message || 'Failed to update featured status';
+    } finally {
+      saving = false;
+    }
+  }
 </script>
 
 <svelte:head>
@@ -317,7 +356,18 @@
               <ul class="list-disc list-inside ml-4">
                 <li>Publish to Site: {promotion.publish_to_site ? 'Yes' : 'No'}</li>
                 <li>Publish to Slack: {promotion.publish_to_slack ? 'Yes' : 'No'}</li>
-                <li>Featured on Homepage: {promotion.is_featured ? 'Yes' : 'No'}</li>
+                <li class="flex items-center gap-2">
+                  Featured on Homepage: {promotion.is_featured ? 'Yes' : 'No'}
+                  {#if promotion.approval_status === 'approved'}
+                    <button
+                      on:click={async () => await toggleFeatured()}
+                      disabled={saving}
+                      class="ml-2 px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-light transition-colors disabled:opacity-50"
+                    >
+                      {saving ? 'Updating...' : (promotion.is_featured ? 'Unfeature' : 'Feature')}
+                    </button>
+                  {/if}
+                </li>
               </ul>
             </div>
           </div>

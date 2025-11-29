@@ -1,16 +1,11 @@
 import { test, expect } from './fixtures/auth';
+import { navigateWithAuth } from './helpers/navigation';
 
 test.describe('Sponsor Admin Features', () => {
   test.describe('Dashboard', () => {
     test('dashboard loads and displays statistics', async ({ sponsorAdminPage: page }) => {
-      await page.goto('/sponsor-admin', { waitUntil: 'networkidle' });
-      
-      // Re-verify session is available after navigation
-      if ((page as any).ensureSessionAvailable) {
-        await (page as any).ensureSessionAvailable();
-      }
-      
-      await page.waitForURL(/\/sponsor-admin/, { timeout: 20000 });
+      // Navigate with auth handling
+      await navigateWithAuth(page, '/sponsor-admin');
       
       // Wait for layout to finish loading
       await page.waitForSelector('nav', { state: 'visible', timeout: 30000 });
@@ -34,13 +29,8 @@ test.describe('Sponsor Admin Features', () => {
     });
 
     test('dashboard shows quick action buttons', async ({ sponsorAdminPage: page }) => {
-      await page.goto('/sponsor-admin', { waitUntil: 'networkidle' });
-      
-      if ((page as any).ensureSessionAvailable) {
-        await (page as any).ensureSessionAvailable();
-      }
-      
-      await page.waitForURL(/\/sponsor-admin/, { timeout: 20000 });
+      // Navigate with auth handling
+      await navigateWithAuth(page, '/sponsor-admin');
       
       // Wait for layout to finish loading
       await page.waitForSelector('nav', { state: 'visible', timeout: 30000 });
@@ -59,7 +49,7 @@ test.describe('Sponsor Admin Features', () => {
 
   test.describe('Profile Management', () => {
     test('can view and edit sponsor profile', async ({ sponsorAdminPage: page }) => {
-      await page.goto('/sponsor-admin/profile', { waitUntil: 'networkidle' });
+      await navigateWithAuth(page, '/sponsor-admin/profile');
       
       if ((page as any).ensureSessionAvailable) {
         await (page as any).ensureSessionAvailable();
@@ -87,12 +77,19 @@ test.describe('Sponsor Admin Features', () => {
       await expect(saveButton).toBeVisible({ timeout: 15000 });
       await saveButton.click();
       
-      // Wait for success (alert or redirect)
-      await page.waitForTimeout(2000);
+      // Wait for success (alert, redirect, or success message)
+      await Promise.race([
+        page.waitForURL(/\/sponsor-admin/, { timeout: 5000 }).catch(() => {}),
+        page.waitForSelector('.bg-green-50, [class*="success"]', { timeout: 5000 }).catch(() => {}),
+        page.waitForFunction(() => {
+          return document.body.textContent?.toLowerCase().includes('success') || 
+                 document.body.textContent?.toLowerCase().includes('saved');
+        }, { timeout: 5000 }).catch(() => {})
+      ]);
     });
 
     test('profile form shows read-only name field', async ({ sponsorAdminPage: page }) => {
-      await page.goto('/sponsor-admin/profile', { waitUntil: 'networkidle' });
+      await navigateWithAuth(page, '/sponsor-admin/profile');
       
       if ((page as any).ensureSessionAvailable) {
         await (page as any).ensureSessionAvailable();
@@ -113,7 +110,7 @@ test.describe('Sponsor Admin Features', () => {
 
   test.describe('Promotions Management', () => {
     test('can view promotions list', async ({ sponsorAdminPage: page }) => {
-      await page.goto('/sponsor-admin/promotions', { waitUntil: 'networkidle' });
+      await navigateWithAuth(page, '/sponsor-admin/promotions');
       
       if ((page as any).ensureSessionAvailable) {
         await (page as any).ensureSessionAvailable();
@@ -135,7 +132,7 @@ test.describe('Sponsor Admin Features', () => {
     });
 
     test('can create a new promotion', async ({ sponsorAdminPage: page }) => {
-      await page.goto('/sponsor-admin/promotions/new', { waitUntil: 'networkidle' });
+      await navigateWithAuth(page, '/sponsor-admin/promotions/new');
       
       if ((page as any).ensureSessionAvailable) {
         await (page as any).ensureSessionAvailable();
@@ -166,7 +163,7 @@ test.describe('Sponsor Admin Features', () => {
 
     test('can edit a promotion', async ({ sponsorAdminPage: page }) => {
       // First, create a promotion
-      await page.goto('/sponsor-admin/promotions/new', { waitUntil: 'networkidle' });
+      await navigateWithAuth(page, '/sponsor-admin/promotions/new');
       
       if ((page as any).ensureSessionAvailable) {
         await (page as any).ensureSessionAvailable();
@@ -210,7 +207,7 @@ test.describe('Sponsor Admin Features', () => {
 
     test('can delete a promotion', async ({ sponsorAdminPage: page }) => {
       // Create a promotion first
-      await page.goto('/sponsor-admin/promotions/new', { waitUntil: 'networkidle' });
+      await navigateWithAuth(page, '/sponsor-admin/promotions/new');
       
       if ((page as any).ensureSessionAvailable) {
         await (page as any).ensureSessionAvailable();
@@ -238,12 +235,20 @@ test.describe('Sponsor Admin Features', () => {
       await expect(deleteButton).toBeVisible({ timeout: 15000 });
       await deleteButton.click();
       
-      // Wait for deletion to complete
-      await page.waitForTimeout(2000);
+      // Wait for deletion to complete (promotion removed from list or confirmation)
+      await Promise.race([
+        page.waitForFunction(() => {
+          // Check if promotion count decreased or confirmation appears
+          const hasConfirmation = document.body.textContent?.toLowerCase().includes('deleted') ||
+                                 document.body.textContent?.toLowerCase().includes('removed');
+          return hasConfirmation;
+        }, { timeout: 5000 }).catch(() => {}),
+        page.waitForSelector('.bg-green-50, [class*="success"]', { timeout: 5000 }).catch(() => {})
+      ]);
     });
 
     test('can toggle promotion status', async ({ sponsorAdminPage: page }) => {
-      await page.goto('/sponsor-admin/promotions', { waitUntil: 'networkidle' });
+      await navigateWithAuth(page, '/sponsor-admin/promotions');
       
       if ((page as any).ensureSessionAvailable) {
         await (page as any).ensureSessionAvailable();
@@ -261,14 +266,26 @@ test.describe('Sponsor Admin Features', () => {
       
       if (buttonExists) {
         await toggleButton.click();
-        await page.waitForTimeout(1000);
+        // Wait for status change to reflect (button text or status badge changes)
+        await page.waitForFunction(
+          () => {
+            // Check if button text changed or status badge updated
+            const buttons = Array.from(document.querySelectorAll('button'));
+            const hasStatusChange = buttons.some(btn => 
+              btn.textContent?.toLowerCase().includes('activate') ||
+              btn.textContent?.toLowerCase().includes('deactivate')
+            );
+            return hasStatusChange;
+          },
+          { timeout: 5000 }
+        ).catch(() => {}); // If no change detected, continue anyway
       }
     });
   });
 
   test.describe('Team Member Management', () => {
     test('can view team members page', async ({ sponsorAdminPage: page }) => {
-      await page.goto('/sponsor-admin/team', { waitUntil: 'networkidle' });
+      await navigateWithAuth(page, '/sponsor-admin/team');
       
       if ((page as any).ensureSessionAvailable) {
         await (page as any).ensureSessionAvailable();
@@ -286,7 +303,7 @@ test.describe('Sponsor Admin Features', () => {
     });
 
     test('can see invite form', async ({ sponsorAdminPage: page }) => {
-      await page.goto('/sponsor-admin/team', { waitUntil: 'networkidle' });
+      await navigateWithAuth(page, '/sponsor-admin/team');
       
       if ((page as any).ensureSessionAvailable) {
         await (page as any).ensureSessionAvailable();
@@ -322,7 +339,7 @@ test.describe('Sponsor Admin Features', () => {
         });
       });
 
-      await page.goto('/sponsor-admin/team', { waitUntil: 'networkidle' });
+      await navigateWithAuth(page, '/sponsor-admin/team');
       
       if ((page as any).ensureSessionAvailable) {
         await (page as any).ensureSessionAvailable();
@@ -347,7 +364,7 @@ test.describe('Sponsor Admin Features', () => {
     });
 
     test('can view current team members', async ({ sponsorAdminPage: page }) => {
-      await page.goto('/sponsor-admin/team', { waitUntil: 'networkidle' });
+      await navigateWithAuth(page, '/sponsor-admin/team');
       
       if ((page as any).ensureSessionAvailable) {
         await (page as any).ensureSessionAvailable();
@@ -370,7 +387,7 @@ test.describe('Sponsor Admin Features', () => {
     });
 
     test('cannot remove yourself from team', async ({ sponsorAdminPage: page }) => {
-      await page.goto('/sponsor-admin/team', { waitUntil: 'networkidle' });
+      await navigateWithAuth(page, '/sponsor-admin/team');
       
       if ((page as any).ensureSessionAvailable) {
         await (page as any).ensureSessionAvailable();

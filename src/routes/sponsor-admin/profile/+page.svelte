@@ -160,46 +160,66 @@
         return;
       }
 
-      // Update sponsor (sponsor admins can only update certain fields, not name/slug)
-      const { error: updateError } = await supabase
-        .from('sponsors')
-        .update({
-          tagline: cleanedData.tagline,
-          description: cleanedData.description,
-          category: cleanedData.category,
-          website_url: cleanedData.website_url,
-          contact_email: cleanedData.contact_email,
-          contact_phone: cleanedData.contact_phone,
-          address_street: cleanedData.address_street,
-          address_city: cleanedData.address_city,
-          address_state: cleanedData.address_state,
-          address_zip: cleanedData.address_zip,
-          social_instagram: cleanedData.social_instagram,
-          social_facebook: cleanedData.social_facebook,
-          social_strava: cleanedData.social_strava,
-          social_twitter: cleanedData.social_twitter
-        })
-        .eq('id', sponsorId);
+      // Update sponsor via API endpoint (bypasses RLS)
+      const response = await fetch('/api/sponsor-admin/update-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(cleanedData)
+      });
 
-      if (updateError) {
-        console.error('Database error:', updateError);
-        errors.submit = updateError.message || 'Failed to update sponsor';
+      const updateResult = await response.json();
+
+      if (!updateResult.success) {
+        console.error('Update error:', updateResult.error);
+        if (updateResult.errors) {
+          // Validation errors
+          errors = updateResult.errors;
+        } else {
+          errors.submit = updateResult.error || 'Failed to update sponsor';
+        }
         saving = false;
         return;
       }
 
-      // Upload logo if a new one was selected (must happen before other updates)
+      // Update local sponsor data with the response
+      if (updateResult.sponsor) {
+        const updatedSponsor = updateResult.sponsor;
+        sponsor = updatedSponsor;
+        // Update form data to reflect saved values
+        formData = {
+          name: updatedSponsor.name,
+          tagline: updatedSponsor.tagline || '',
+          description: updatedSponsor.description || '',
+          category: updatedSponsor.category || [],
+          website_url: updatedSponsor.website_url || '',
+          contact_email: updatedSponsor.contact_email || '',
+          contact_phone: updatedSponsor.contact_phone || '',
+          address_street: updatedSponsor.address_street || '',
+          address_city: updatedSponsor.address_city || '',
+          address_state: updatedSponsor.address_state || '',
+          address_zip: updatedSponsor.address_zip || '',
+          social_instagram: updatedSponsor.social_instagram || '',
+          social_facebook: updatedSponsor.social_facebook || '',
+          social_strava: updatedSponsor.social_strava || '',
+          social_twitter: updatedSponsor.social_twitter || ''
+        };
+        // Update logo preview if logo exists
+        if (updatedSponsor.logo_url) {
+          logoPreview = updatedSponsor.logo_url;
+        }
+      }
+
+      // Upload logo if a new one was selected (must happen after profile update)
       if (logoFile) {
         const uploadSuccess = await uploadLogo();
         if (!uploadSuccess) {
-          // Upload failed, stop form submission
+          // Upload failed, but profile was already saved
           saving = false;
           return;
         }
       }
-
-      // Reload sponsor data
-      await loadSponsor();
       
       // Show success message
       alert('Profile updated successfully!');
@@ -312,7 +332,7 @@
       {errors.submit}
     </div>
   {:else if sponsor}
-    <form on:submit|preventDefault={handleSubmit} class="bg-white rounded-lg shadow-md p-6 space-y-6">
+    <form on:submit|preventDefault={handleSubmit} class="bg-white rounded-lg shadow-md p-6 space-y-6" data-testid="profile-form">
       {#if errors.submit}
         <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded mb-4">
           <p class="font-semibold">Error:</p>
@@ -410,6 +430,7 @@
               value={sponsor.name}
               class="input bg-gray-100"
               disabled
+              data-testid="name-input"
             />
             <p class="text-sm text-gray-500 mt-1">Name cannot be changed. Contact an administrator to change the sponsor name.</p>
           </div>
@@ -423,6 +444,7 @@
               class="input"
               maxlength="150"
               placeholder="Short tagline (max 150 characters)"
+              data-testid="tagline-input"
             />
           </div>
 
@@ -435,6 +457,7 @@
               rows="4"
               maxlength="2000"
               placeholder="Detailed description of the sponsor"
+              data-testid="description-input"
             ></textarea>
           </div>
 
@@ -606,6 +629,7 @@
           type="submit"
           disabled={saving}
           class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors disabled:opacity-50"
+          data-testid="save-profile-button"
         >
           {saving ? 'Saving...' : 'Save Changes'}
         </button>

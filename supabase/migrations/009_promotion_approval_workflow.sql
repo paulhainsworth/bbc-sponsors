@@ -35,3 +35,4 @@ COMMENT ON COLUMN promotions.publish_to_site IS 'Whether super admin approved pu
 COMMENT ON COLUMN promotions.publish_to_slack IS 'Whether super admin approved publishing to Slack #sponsor-news channel';
 COMMENT ON COLUMN promotions.slack_channel IS 'Slack channel ID or name where promotion should be posted';
 
+

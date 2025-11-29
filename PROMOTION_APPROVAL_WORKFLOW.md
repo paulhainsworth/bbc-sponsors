@@ -135,3 +135,4 @@ PUBLIC_APP_URL=https://your-domain.com
 - Approval history/audit log
 - Email templates customization
 
+

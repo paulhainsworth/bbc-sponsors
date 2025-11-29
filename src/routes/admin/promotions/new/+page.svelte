@@ -1,12 +1,14 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { createClient } from '$lib/utils/supabase';
-  import { userStore } from '$lib/stores/user';
   import { promotionSchema } from '$lib/utils/validators';
   import RichTextEditor from '$lib/components/common/RichTextEditor.svelte';
   import type { z } from 'zod';
+  import type { Database } from '$lib/types/database.types';
 
   type PromotionForm = z.infer<typeof promotionSchema>;
+  type Sponsor = Database['public']['Tables']['sponsors']['Row'];
 
   let formData: PromotionForm = {
     title: '',
@@ -22,7 +24,12 @@
 
   let errors: Record<string, string> = {};
   let loading = false;
-  let sponsorId: string | null = null;
+  let sponsors: Sponsor[] = [];
+  let selectedSponsorId: string = '';
+  let status: 'active' | 'draft' = 'active';
+  let publishToSite = true;
+  let publishToSlack = false;
+  let slackChannel = 'sponsor-news';
 
   const supabase = createClient();
 
@@ -30,19 +37,22 @@
   $: isCouponCode = formData.promotion_type === 'coupon_code';
   $: isExternalLink = formData.promotion_type === 'external_link';
 
-  async function loadSponsorId() {
-    if (!$userStore.profile) return;
+  onMount(async () => {
+    await loadSponsors();
+  });
 
-    // Use server-side API endpoint to get sponsor ID (bypasses RLS)
-    try {
-      const response = await fetch('/api/sponsor-admin/get-sponsor');
-      const result = await response.json();
+  async function loadSponsors() {
+    const { data, error } = await supabase
+      .from('sponsors')
+      .select('id, name, status')
+      .eq('status', 'active')
+      .order('name');
 
-      if (result.success && result.sponsorId) {
-        sponsorId = result.sponsorId;
-      }
-    } catch (error) {
-      console.error('Error fetching sponsor ID:', error);
+    if (error) {
+      console.error('Error loading sponsors:', error);
+      errors.submit = 'Failed to load sponsors';
+    } else {
+      sponsors = data || [];
     }
   }
 
@@ -50,10 +60,8 @@
     errors = {};
     loading = true;
 
-    await loadSponsorId();
-
-    if (!sponsorId) {
-      errors.submit = 'No sponsor associated with your account';
+    if (!selectedSponsorId) {
+      errors.sponsor = 'Please select a sponsor';
       loading = false;
       return;
     }
@@ -81,13 +89,14 @@
         return;
       }
 
-      // Create promotion via server-side API (bypasses RLS)
-      const response = await fetch('/api/sponsor-admin/promotions/create', {
+      // Create promotion via server-side API
+      const response = await fetch('/api/admin/promotions/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          sponsor_id: selectedSponsorId,
           title: cleanedData.title,
           description: cleanedData.description,
           promotion_type: cleanedData.promotion_type,
@@ -96,9 +105,11 @@
           coupon_code: cleanedData.coupon_code,
           external_link: cleanedData.external_link,
           terms: cleanedData.terms,
-          // Sponsor admins cannot feature promotions - only super admins can
-          is_featured: false,
-          status: 'active' // Default to 'active' so promotions show immediately
+          is_featured: formData.is_featured,
+          status: status,
+          publish_to_site: publishToSite,
+          publish_to_slack: publishToSlack,
+          slack_channel: publishToSlack ? slackChannel : null
         })
       });
 
@@ -111,8 +122,8 @@
         return;
       }
 
-      // Redirect to promotions list with reload
-      goto('/sponsor-admin/promotions', { invalidateAll: true });
+      // Redirect to promotions list
+      goto('/admin/promotions');
     } catch (error) {
       errors.submit = 'An unexpected error occurred';
       console.error(error);
@@ -123,16 +134,16 @@
 </script>
 
 <svelte:head>
-  <title>Create Promotion - Sponsor Admin</title>
+  <title>Create Promotion - Admin</title>
 </svelte:head>
 
 <div>
   <div class="mb-6">
-    <a href="/sponsor-admin/promotions" class="text-white hover:opacity-80 transition-opacity">← Back to Promotions</a>
-    <h1 class="text-3xl font-bold mt-4 text-white">Create Promotion</h1>
+    <a href="/admin/promotions" class="text-primary hover:underline">← Back to Promotions</a>
+    <h1 class="text-3xl font-bold mt-4">Create Promotion</h1>
   </div>
 
-  <form on:submit|preventDefault={handleSubmit} class="bg-white rounded-lg shadow-md p-6 space-y-6" data-testid="create-promotion-form">
+  <form on:submit|preventDefault={handleSubmit} class="bg-white rounded-lg shadow-md p-6 space-y-6">
     {#if errors.submit}
       <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded mb-4">
         <p class="font-semibold">Error:</p>
@@ -153,6 +164,28 @@
       </div>
     {/if}
 
+    <!-- Sponsor Selection -->
+    <div>
+      <h2 class="text-xl font-semibold mb-4">Sponsor</h2>
+      <div>
+        <label for="sponsor" class="label">Select Sponsor *</label>
+        <select
+          id="sponsor"
+          bind:value={selectedSponsorId}
+          class="input"
+          required
+        >
+          <option value="">-- Select a sponsor --</option>
+          {#each sponsors as sponsor}
+            <option value={sponsor.id}>{sponsor.name}</option>
+          {/each}
+        </select>
+        {#if errors.sponsor}
+          <p class="text-red-600 text-sm mt-1">{errors.sponsor}</p>
+        {/if}
+      </div>
+    </div>
+
     <!-- Basic Information -->
     <div>
       <h2 class="text-xl font-semibold mb-4">Basic Information</h2>
@@ -166,7 +199,6 @@
             class="input"
             required
             maxlength="100"
-            data-testid="promotion-title-input"
           />
           {#if errors.title}
             <p class="text-red-600 text-sm mt-1">{errors.title}</p>
@@ -187,7 +219,7 @@
 
         <div>
           <label for="promotion_type" class="label">Promotion Type *</label>
-          <select id="promotion_type" bind:value={formData.promotion_type} class="input" data-testid="promotion-type-select">
+          <select id="promotion_type" bind:value={formData.promotion_type} class="input">
             <option value="evergreen">Evergreen (Ongoing)</option>
             <option value="time_limited">Time Limited</option>
             <option value="coupon_code">Coupon Code</option>
@@ -278,7 +310,65 @@
           placeholder="Enter terms and conditions..."
         ></textarea>
       </div>
+    </div>
 
+    <!-- Publishing Options -->
+    <div>
+      <h2 class="text-xl font-semibold mb-4">Publishing Options</h2>
+      <div class="space-y-4">
+        <div>
+          <label for="status" class="label">Status</label>
+          <select id="status" bind:value={status} class="input">
+            <option value="active">Active (Published immediately)</option>
+            <option value="draft">Draft (Save for later)</option>
+          </select>
+        </div>
+
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            bind:checked={publishToSite}
+            class="w-5 h-5 text-primary rounded"
+          />
+          <div>
+            <span class="font-semibold">Publish to Site</span>
+            <p class="text-sm text-gray-600">Make this promotion visible on the public website</p>
+          </div>
+        </label>
+
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            bind:checked={publishToSlack}
+            class="w-5 h-5 text-primary rounded"
+          />
+          <div class="flex-1">
+            <span class="font-semibold">Publish to Slack</span>
+            <p class="text-sm text-gray-600">Post this promotion to a Slack channel</p>
+            {#if publishToSlack}
+              <input
+                type="text"
+                bind:value={slackChannel}
+                placeholder="sponsor-news"
+                class="mt-2 input w-full max-w-xs"
+              />
+              <p class="text-xs text-gray-500 mt-1">Enter channel name (e.g., sponsor-news) or channel ID</p>
+            {/if}
+          </div>
+        </label>
+
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            bind:checked={formData.is_featured}
+            class="w-5 h-5 text-primary rounded"
+          />
+          <div>
+            <span class="font-semibold">Feature on Homepage</span>
+            <p class="text-sm text-gray-600">Display this promotion in the featured carousel on the homepage</p>
+          </div>
+        </label>
+      </div>
     </div>
 
     <!-- Actions -->
@@ -287,12 +377,11 @@
         type="submit"
         disabled={loading}
         class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors disabled:opacity-50"
-        data-testid="create-promotion-submit-button"
       >
         {loading ? 'Creating...' : 'Create Promotion'}
       </button>
       <a
-        href="/sponsor-admin/promotions"
+        href="/admin/promotions"
         class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
       >
         Cancel
@@ -300,6 +389,4 @@
     </div>
   </form>
 </div>
-
-
 

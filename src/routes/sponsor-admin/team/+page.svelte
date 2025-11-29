@@ -174,7 +174,7 @@
   <div class="flex items-center justify-between mb-6">
     <div>
       <a href="/sponsor-admin" class="text-white hover:opacity-80 transition-opacity">← Back to Dashboard</a>
-      <h1 class="text-3xl font-bold mt-4 text-white">Team Members</h1>
+      <h1 class="text-3xl font-bold mt-4 text-white" data-testid="team-members-heading">Team Members</h1>
     </div>
   </div>
 
@@ -203,6 +203,7 @@
       <form
         on:submit|preventDefault={handleInvite}
         class="flex gap-4 items-end"
+        data-testid="invite-team-member-form"
       >
         <div class="flex-1">
           <label for="invite-email" class="block text-sm font-medium text-gray-700 mb-2">
@@ -216,12 +217,14 @@
             placeholder="team-member@example.com"
             required
             disabled={inviting}
+            data-testid="invite-email-input"
           />
         </div>
         <button
           type="submit"
           disabled={inviting || !inviteEmail.trim()}
           class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          data-testid="send-invitation-button"
         >
           {inviting ? 'Sending...' : 'Send Invitation'}
         </button>
@@ -239,7 +242,7 @@
           <p>No team members yet. Invite someone to get started!</p>
         </div>
       {:else}
-        <table class="min-w-full divide-y divide-gray-200">
+        <table class="min-w-full divide-y divide-gray-200" data-testid="team-members-table">
           <thead class="bg-gray-50">
             <tr>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">

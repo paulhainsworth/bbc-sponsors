@@ -588,6 +588,7 @@
   {:else}
     <div
       bind:this={editorElement}
+      data-testid="rich-text-editor"
       on:click={handleEditorClick}
       on:keydown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {

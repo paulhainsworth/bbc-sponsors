@@ -1,9 +1,10 @@
 import { test, expect } from './fixtures/auth';
+import { navigateWithAuth } from './helpers/navigation';
 
 test.describe('Sponsor Admin Dashboard', () => {
   // Use the sponsorAdminPage fixture which handles authentication
   test('dashboard loads and shows sponsor information', async ({ sponsorAdminPage: page }) => {
-    await page.goto('/sponsor-admin', { waitUntil: 'networkidle' });
+    await navigateWithAuth(page, '/sponsor-admin');
     
     // Wait for layout to finish loading (no spinner in layout)
     await page.waitForSelector('.animate-spin', { state: 'hidden', timeout: 20000 }).catch(() => {});
@@ -34,15 +35,7 @@ test.describe('Sponsor Admin Dashboard', () => {
 
   test('navigation links are visible', async ({ sponsorAdminPage: page }) => {
     // Navigate to sponsor admin page
-    await page.goto('/sponsor-admin', { waitUntil: 'networkidle' });
-    
-    // Re-verify session is available after navigation
-    if ((page as any).ensureSessionAvailable) {
-      await (page as any).ensureSessionAvailable();
-    }
-    
-    // Wait for URL to stabilize
-    await page.waitForURL(/\/sponsor-admin/, { timeout: 20000 });
+    await navigateWithAuth(page, '/sponsor-admin');
     
     // Wait for layout to finish loading - nav should appear when loading is false
     await page.waitForSelector('nav', { state: 'visible', timeout: 30000 });
@@ -54,29 +47,18 @@ test.describe('Sponsor Admin Dashboard', () => {
     await page.waitForSelector('a[href="/sponsor-admin/profile"]', { state: 'attached', timeout: 20000 });
     await page.waitForSelector('a[href="/sponsor-admin/promotions"]', { state: 'attached', timeout: 20000 });
     
-    // Wait a bit for reactive statements to finish processing
-    await page.waitForTimeout(2000);
-    
-    // Now wait for the links to be visible using Playwright's built-in methods
+    // Wait for links to be visible using Playwright's built-in methods
     const profileLink = page.getByRole('link', { name: /profile/i });
     const promotionsLink = page.getByRole('link', { name: /promotions/i });
     
-    // Wait for links to be visible
+    // Wait for links to be visible (this also waits for reactive statements)
     await expect(profileLink).toBeVisible({ timeout: 15000 });
     await expect(promotionsLink).toBeVisible({ timeout: 15000 });
   });
 
   test('can navigate to profile page', async ({ sponsorAdminPage: page }) => {
     // Navigate to sponsor admin page
-    await page.goto('/sponsor-admin', { waitUntil: 'networkidle' });
-    
-    // Immediately re-verify session is available after navigation
-    if ((page as any).ensureSessionAvailable) {
-      await (page as any).ensureSessionAvailable();
-    }
-    
-    // Wait for URL - should be on sponsor admin page, not login
-    await page.waitForURL(/\/sponsor-admin/, { timeout: 20000 });
+    await navigateWithAuth(page, '/sponsor-admin');
     
     // Wait for layout to finish loading
     await page.waitForSelector('nav', { state: 'visible', timeout: 30000 });
@@ -85,10 +67,7 @@ test.describe('Sponsor Admin Dashboard', () => {
     // Wait for profile link to exist in DOM by href
     await page.waitForSelector('a[href="/sponsor-admin/profile"]', { state: 'attached', timeout: 20000 });
     
-    // Wait a bit for reactive statements to finish
-    await page.waitForTimeout(2000);
-    
-    // Wait for profile link to be visible and clickable
+    // Wait for profile link to be visible and clickable (this waits for reactive statements)
     const profileLink = page.getByRole('link', { name: /profile/i });
     await expect(profileLink).toBeVisible({ timeout: 15000 });
     
@@ -101,15 +80,7 @@ test.describe('Sponsor Admin Dashboard', () => {
 
   test('can navigate to promotions page', async ({ sponsorAdminPage: page }) => {
     // Navigate to sponsor admin page
-    await page.goto('/sponsor-admin', { waitUntil: 'networkidle' });
-    
-    // Immediately re-verify session is available after navigation
-    if ((page as any).ensureSessionAvailable) {
-      await (page as any).ensureSessionAvailable();
-    }
-    
-    // Wait for URL - should be on sponsor admin page, not login
-    await page.waitForURL(/\/sponsor-admin/, { timeout: 20000 });
+    await navigateWithAuth(page, '/sponsor-admin');
     
     // Wait for layout to finish loading
     await page.waitForSelector('nav', { state: 'visible', timeout: 30000 });
@@ -118,10 +89,7 @@ test.describe('Sponsor Admin Dashboard', () => {
     // Wait for promotions link to exist in DOM by href
     await page.waitForSelector('a[href="/sponsor-admin/promotions"]', { state: 'attached', timeout: 20000 });
     
-    // Wait a bit for reactive statements to finish
-    await page.waitForTimeout(2000);
-    
-    // Wait for promotions link to be visible and clickable
+    // Wait for promotions link to be visible and clickable (this waits for reactive statements)
     const promotionsLink = page.getByRole('link', { name: /promotions/i });
     await expect(promotionsLink).toBeVisible({ timeout: 15000 });
     
