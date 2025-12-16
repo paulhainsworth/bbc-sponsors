@@ -20,51 +20,61 @@ export const load: PageServerLoad = async (event) => {
 
   const code = event.url.searchParams.get('code');
   const token = event.url.searchParams.get('token');
+  const redirectTo = event.url.searchParams.get('redirect') || '/';
 
+  // Handle PKCE flow (code in query params)
   if (code) {
-    await supabase.auth.exchangeCodeForSession(code);
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error) {
+      // Successfully exchanged code, now check for invitation
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user?.email) {
+        const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
+        if (serviceRoleKey) {
+          const supabaseAdmin = createClient(PUBLIC_SUPABASE_URL, serviceRoleKey, {
+            auth: { autoRefreshToken: false, persistSession: false }
+          });
+
+          const { data: invitation } = await supabaseAdmin
+            .from('invitations')
+            .select('token, accepted_at, expires_at')
+            .eq('email', session.user.email)
+            .is('accepted_at', null)
+            .gt('expires_at', new Date().toISOString())
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (invitation?.token) {
+            throw redirect(303, `/auth/accept-invitation?token=${invitation.token}`);
+          }
+        }
+      }
+      
+      // Redirect to home or specified destination
+      throw redirect(303, redirectTo);
+    }
   }
 
-  // If there's an invitation token in the URL, use it
+  // If there's an invitation token in the URL, redirect to accept it
   if (token) {
     throw redirect(303, `/auth/accept-invitation?token=${token}`);
   }
 
-  // If no token in URL, check if user just authenticated and has a pending invitation
-  // This handles the case where Supabase's redirect doesn't preserve query params
-  const {
-    data: { session }
-  } = await supabase.auth.getSession();
-
-  if (session?.user?.email) {
-    // Look up pending invitation by email
-    const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
-    if (serviceRoleKey) {
-      const supabaseAdmin = createClient(PUBLIC_SUPABASE_URL, serviceRoleKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      });
-
-      const { data: invitation } = await supabaseAdmin
-        .from('invitations')
-        .select('token, accepted_at, expires_at')
-        .eq('email', session.user.email)
-        .is('accepted_at', null)
-        .gt('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (invitation?.token) {
-        // Found a pending invitation, redirect to accept it
-        throw redirect(303, `/auth/accept-invitation?token=${invitation.token}`);
-      }
-    }
+  // No code parameter - this might be an implicit flow with hash fragments
+  // Don't redirect here - let the client-side handle it
+  // The +page.svelte will check for hash fragment tokens
+  
+  // But first, check if there's already a session (user might be refreshing)
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (session?.user) {
+    // Already authenticated, redirect to destination
+    throw redirect(303, redirectTo);
   }
-
-  const redirectTo = event.url.searchParams.get('redirect') || '/';
-  throw redirect(303, redirectTo);
+  
+  // No session and no code - let client-side handle potential hash fragments
+  return { redirectTo };
 };
 

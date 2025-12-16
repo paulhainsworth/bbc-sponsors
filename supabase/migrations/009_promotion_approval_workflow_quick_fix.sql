@@ -22,3 +22,11 @@ ALTER TABLE promotions
   ADD CONSTRAINT promotions_status_check 
   CHECK (status IN ('draft', 'pending_approval', 'active', 'expired', 'archived'));
 
+
+
+
+
+
+
+
+

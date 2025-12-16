@@ -265,3 +265,11 @@ const projectRef = supabaseUrl.match(/https?:\/\/([^.]+)\.supabase\.co/)?.[1] ||
 
 **Recommendation**: Use **both** - local for development, staging for CI/CD. This gives you the best of both worlds.
 
+
+
+
+
+
+
+
+

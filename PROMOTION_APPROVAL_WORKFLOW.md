@@ -136,3 +136,11 @@ PUBLIC_APP_URL=https://your-domain.com
 - Email templates customization
 
 
+
+
+
+
+
+
+
+

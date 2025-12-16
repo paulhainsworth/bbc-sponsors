@@ -36,3 +36,11 @@ COMMENT ON COLUMN promotions.publish_to_slack IS 'Whether super admin approved p
 COMMENT ON COLUMN promotions.slack_channel IS 'Slack channel ID or name where promotion should be posted';
 
 
+
+
+
+
+
+
+
+

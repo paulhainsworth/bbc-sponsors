@@ -32,6 +32,12 @@
   let loading = true;
   let saving = false;
   let sponsor: Sponsor | null = null;
+  
+  // Logo upload state
+  let logoFile: File | null = null;
+  let logoPreview: string | null = null;
+  let uploadingLogo = false;
+  let logoError = '';
 
   const supabase = createClient();
 
@@ -50,6 +56,51 @@
   onMount(async () => {
     await loadSponsor();
   });
+
+  function handleLogoSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      logoFile = input.files[0];
+      logoPreview = URL.createObjectURL(logoFile);
+      logoError = '';
+    }
+  }
+
+  async function uploadLogo() {
+    if (!logoFile || !sponsorId) return;
+    
+    uploadingLogo = true;
+    logoError = '';
+    
+    try {
+      const formData = new FormData();
+      formData.append('logo', logoFile);
+      formData.append('sponsorId', sponsorId);
+      
+      const response = await fetch('/api/admin/sponsors/upload-logo', {
+        method: 'POST',
+        body: formData
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update local sponsor data with new logo URL
+        if (sponsor) {
+          sponsor = { ...sponsor, logo_url: result.logoUrl };
+        }
+        logoFile = null;
+        logoPreview = null;
+      } else {
+        logoError = result.error || 'Failed to upload logo';
+      }
+    } catch (error) {
+      console.error('Logo upload error:', error);
+      logoError = 'An error occurred while uploading the logo';
+    } finally {
+      uploadingLogo = false;
+    }
+  }
 
   async function loadSponsor() {
     if (!sponsorId) {
@@ -248,6 +299,59 @@
           </ul>
         </div>
       {/if}
+
+      <!-- Logo Upload -->
+      <div>
+        <h2 class="text-xl font-semibold mb-4">Sponsor Logo</h2>
+        <div class="flex items-start gap-6">
+          <div class="flex-shrink-0">
+            {#if logoPreview}
+              <img src={logoPreview} alt="Logo preview" class="w-32 h-32 object-contain border rounded-lg bg-gray-50" />
+            {:else if sponsor?.logo_url}
+              <img src={sponsor.logo_url} alt="{sponsor.name} logo" class="w-32 h-32 object-contain border rounded-lg bg-gray-50" />
+            {:else}
+              <div class="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center text-gray-400">
+                No logo
+              </div>
+            {/if}
+          </div>
+          <div class="flex-grow">
+            <input
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/webp,image/svg+xml"
+              on:change={handleLogoSelect}
+              class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-light file:cursor-pointer"
+            />
+            <p class="text-sm text-gray-500 mt-2">Accepted formats: JPEG, PNG, WebP, SVG. Max size: 5MB</p>
+            {#if logoFile}
+              <button
+                type="button"
+                on:click={uploadLogo}
+                disabled={uploadingLogo}
+                class="mt-3 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                {uploadingLogo ? 'Uploading...' : 'Upload Logo'}
+              </button>
+            {/if}
+            {#if logoError}
+              <p class="text-red-600 text-sm mt-2">{logoError}</p>
+            {/if}
+          </div>
+        </div>
+      </div>
+
+      <!-- Promotions Management Link -->
+      <div>
+        <h2 class="text-xl font-semibold mb-4">Promotions</h2>
+        <a
+          href="/admin/sponsors/{sponsorId}/promotions"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors"
+        >
+          <span>Manage Promotions</span>
+          <span>→</span>
+        </a>
+        <p class="text-sm text-gray-500 mt-2">Create, edit, and manage promotions for this sponsor.</p>
+      </div>
 
       <!-- Basic Information -->
       <div>

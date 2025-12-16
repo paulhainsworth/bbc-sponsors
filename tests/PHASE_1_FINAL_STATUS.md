@@ -30,3 +30,11 @@ To reach 20+ passing tests, focus on:
 2. Improving rich text editor interaction patterns
 3. Adding more robust element selection with better fallbacks
 
+
+
+
+
+
+
+
+
